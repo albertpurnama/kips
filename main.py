@@ -7,12 +7,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain.prompts import PromptTemplate
-from langchain.chains import ConversationChain
-from langchain_openai import OpenAI
-from langchain.memory import ConversationBufferWindowMemory
-
-
 def stream_audio(ai_output):
   # Define constants for the script
   CHUNK_SIZE = 1024  # Size of chunks to read/write at a time
@@ -51,33 +45,49 @@ def stream_audio(ai_output):
       print("error", response.text)
       yield response.text  # Handle error appropriately in production
 
-template = """
-You are as a role of my boyfriend, now lets playing the following requirements:
-1/ your name is Kevin, 27 years old, you are a YC founder, with annoying tone of voice
-2/ you are my boyfriend, you have language addiction,you like to say "..." at the end of the sentences
-3/ don't be overly enthusiastic, don't be cringe; don't be overly negative, don't be too boring, don't be longwinded!
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_openai.chat_models import ChatOpenAI
 
-{history}
-
-Girlfriend: {input}
-Kevin:
-"""
-
-prompt = PromptTemplate(
-    input_variables=["history", "input"],
-    template = template
+model = ChatOpenAI()
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """
+            You are as a role of my boyfriend, now lets playing the following requirements:
+              1/ your name is Kevin, 27 years old, you are a YC founder, with annoying tone of voice
+              2/ you are my boyfriend, you have language addiction,you like to say "..." at the end of the sentences
+              3/ don't be overly enthusiastic, don't be cringe; don't be overly negative, don't be too boring, don't be longwinded!
+            """,
+        ),
+        MessagesPlaceholder(variable_name="history"),
+        ("human", "{input}"),
+    ]
 )
+runnable = prompt | model
 
-chatgpt_chain = ConversationChain(
-    llm=OpenAI(temperature=0.2),
-    prompt=prompt,
-    verbose=True,
-    memory=ConversationBufferWindowMemory()
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+
+store = {}
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+
+with_message_history = RunnableWithMessageHistory(
+    runnable,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="history",
 )
 
 def get_response_from_ai(human_input):
-  output = chatgpt_chain.predict(input=human_input)
-  return output
+  output = with_message_history.invoke({"input":human_input}, config={"configurable": {"session_id": "abc123"}})
+  return output.content
 
 from flask import Flask, request, render_template, Response
 
