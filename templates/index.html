@@ -1,9 +1,67 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Hello World</title>
+    <title>Chatbot</title>
   </head>
   <body>
-    <h1>Hello World!</h1>
+    <h1>AI girlfriend</h1>
+    <form method="POST" action="/send_message">
+      <input type="text" name="human_input" placeholder="Enter your message" />
+      <button type="submit">Send</button>
+    </form>
+    <div id="response_message"></div>
+    <script>
+      const form = document.querySelector("form");
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        fetch("/stream_audio_message", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.blob())
+          .then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.play();
+          });
+        form.reset();
+      });
+
+      // const form = document.querySelector("form");
+      // const audio = document.createElement('audio');
+      // const mediaSource = new MediaSource();
+
+      // audio.src = URL.createObjectURL(mediaSource);
+      // audio.play(); // Attempt to play the audio
+
+      // mediaSource.addEventListener('sourceopen', function () {
+      //   const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg'); // Use the correct MIME type
+      //   form.addEventListener("submit", function (e) {
+      //     e.preventDefault();
+      //     const formData = new FormData(form);
+      //     fetch("/stream_audio_message", {
+      //       method: "POST",
+      //       body: formData,
+      //     })
+      //     .then(response => {
+      //       const reader = response.body.getReader();
+      //       function push() {
+      //         reader.read().then(({ done, value }) => {
+      //           if (done) {
+      //             mediaSource.endOfStream();
+      //             return;
+      //           }
+      //           sourceBuffer.appendBuffer(value);
+      //           sourceBuffer.addEventListener('updateend', push, { once: true });
+      //         });
+      //       }
+      //       push();
+      //     });
+      //     form.reset();
+      //   });
+      // });
+    </script>
   </body>
 </html>
